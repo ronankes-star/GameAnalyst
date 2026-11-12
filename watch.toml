@@ -14,6 +14,23 @@ queries = [
   "demon slayer tower defense", "bleach tower defense", "solo leveling tower defense", "chainsaw man tower defense",
   "hunter x hunter tower defense", "one punch man tower defense", "black clover tower defense",
   "waifu tower defense", "all star tower defense", "ultimate tower defense", "universal tower defense",
+  # Every genre (M2b). The charts show each genre's leaders; these terms also find its small and quiet games.
+  # Checked 2026-11-12: 3 pages of these 56 terms found 3,852 games that were not tracked yet.
+  "battlegrounds", "fighting game", "open world", "rhythm game",  # Action
+  "adventure", "story game", "exploration",  # Adventure
+  "obby", "tower obby", "parkour", "runner",  # Obby & Platformer
+  "minigames", "quiz", "party game", "drawing game",  # Party & Casual
+  "puzzle", "escape room", "merge game",  # Puzzle
+  "rpg", "dungeon", "open world rpg",  # RPG
+  "roleplay", "life roleplay", "dress up", "pet game", "animal simulator",  # Roleplay & Avatar Sim
+  "shooter", "fps", "battle royale", "gun game",  # Shooter
+  "avatar shop", "ugc",  # Shopping
+  "simulator", "tycoon", "idle", "incremental", "car game", "driving", "sandbox", "rng", "brainrot",
+  "garden",  # Simulation
+  "soccer", "football", "basketball", "racing",  # Sports & Racing
+  "strategy", "card game",  # Strategy (tower defense is above)
+  "survival", "horror", "escape", "1 vs all", "hide and seek",  # Survival
+  "hangout", "music", "showcase",  # Entertainment & Social
 ]
 
 [search.more_pages]
