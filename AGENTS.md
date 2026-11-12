@@ -51,8 +51,10 @@ the other genres.
 - [ ] M2 Genre lists + the anime TD study (the riskiest-assumption test). First version 2026-11-12: `list` and
   `study`, lists `anime-td` and `tower-defense`. Open: Ronan's check of the anime TD list, then more days of data.
 - [ ] M2b Discovery across all genres, so that every genre has its flops in the data, not only its chart
-  toppers: read all 26 charts (see the endpoints), and add search terms per genre. Show Ronan the plan with the
-  expected run time first. The daily task stops a run after 2 hours.
+  toppers. Done 2026-11-12 (Ronan approved the plan): all 26 charts, 56 genre search terms (3 pages each), weekly
+  badge and pass checks for quiet games, a longer gap for a host that answers 429. 6,330 games tracked. Open:
+  watch the daily run time and the 429 errors in the `runs` table. The daily task stops a run after 2 hours, and
+  the estimate is about 60-105 minutes a day; tracked games only grow.
 - [ ] M3 Model v0 + backtest + calibration report
 - [ ] M4 Breakdown report (LLM) for one game
 - [ ] M5 Web app
@@ -85,7 +87,7 @@ Checked on 2026-11-12 (public, no login):
   That is only the first page of charts. Pass `nextSortsPageToken` back as `sortsPageToken` to page on: 26 charts
   in 5 pages, about 900 games. They include top-earning, top-paid-access, top-rated, most-popular, and
   "trending-in-<genre>" for 15 genres. The only filters are device and country. There is no genre filter, and a
-  genre parameter changes nothing (checked 2026-11-12). The collector still reads only the first page.
+  genre parameter changes nothing (checked 2026-11-12). The collector reads every page.
 - `GET https://badges.roblox.com/v1/universes/{universeId}/badges?limit=100` -> per badge
   `statistics.pastDayAwardedCount` and `statistics.awardedCount`. `winRatePercentage` came back 0.0 for every
   badge, so don't rely on it. In games with progression badges, the counts show where players drop off.
@@ -117,10 +119,14 @@ Checked on 2026-11-12 (public, no login):
   10M+ visits. So the anime TD list grows mainly with time (new launches), not with more search terms.
 
 ## Code map
-- `gameanalyst/http.py`: the polite client (0.3 s between requests, retries with backoff, honors Retry-After).
+- `gameanalyst/http.py`: the polite client (0.3 s between two requests to the same host, a longer gap after a 429,
+  retries with backoff, honors Retry-After). Each round trip takes about 0.3 s, so a run costs about 0.68 s per game
+  that gets its badges and passes, and almost nothing for the other games (they come in batches).
 - `gameanalyst/roblox.py`: endpoint wrappers with their batch and page limits.
 - `gameanalyst/store.py`: SQLite tables (append-only, keyed by day) and the raw archive
-  `data/raw/<day>/<kind>.jsonl.gz`. `game_text` keeps descriptions, one row per change. The file is in WAL mode,
+  `data/raw/<day>/<kind>.jsonl.gz`. `game_text` keeps descriptions, one row per change. `detail_checks` keeps
+  the days a game's badges and passes were saved: every day for busy games, once a week for games with under 20
+  players online (each on its own weekday, so the load stays even). The study and `show` read each game's last check. The file is in WAL mode,
   so people can read while the daily run writes.
 - `gameanalyst/collect.py`: one daily run (find games, then save each tracked game). `backfill_text` fills
   `game_text` from the raw archive (`python -m gameanalyst backfill-text`).

@@ -24,9 +24,12 @@ the next milestones is in [AGENTS.md](AGENTS.md).
 - **Games:** players online, visits, favorites, likes and dislikes, created and updated dates, genre, creator, icon.
 - **Badges:** how many players earned each badge in the past day and in total. In games with progression badges,
   this shows where players quit.
-- **Game passes:** names and prices.
+- **Game passes:** names and prices. Games with under 20 players online get their badges and passes checked once
+  a week, not every day. That keeps the daily run short.
 - **Descriptions:** saved on the days they change, so the genre lists can read them.
-- **Charts and search:** the rank of each game on the Charts page, and for each search term in `watch.toml`.
+- **Charts and search:** the rank of each game on all 26 charts of the Charts page (among them a "Trending in"
+  chart for 15 genres), and for each search term in `watch.toml` (79 terms: anime TD, tower defense, and every
+  genre).
 
 A game stays tracked after it leaves the charts, so the flops stay in the data, not only the hits. Every raw
 response also goes into `data/raw/<day>/` as gzipped JSON lines, so the fields that are not in use today are kept.
@@ -38,7 +41,7 @@ It needs Python 3.12 or newer. The collector uses only the standard library.
 ```bash
 py -3.14 -m venv .venv
 .venv/Scripts/python -m pip install pytest
-.venv/Scripts/python -m gameanalyst collect                      # today's snapshot, about 20-40 minutes
+.venv/Scripts/python -m gameanalyst collect                      # today's snapshot, about 60-105 minutes
 .venv/Scripts/python -m gameanalyst show --query "anime tower defense"
 .venv/Scripts/python -m gameanalyst list                         # the anime TD list: counts and the games to check
 .venv/Scripts/python -m gameanalyst list --all                   # also the games in it, and the TD games left out
