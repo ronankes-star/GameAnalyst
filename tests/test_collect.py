@@ -1,4 +1,6 @@
-from gameanalyst.collect import Plan, backfill_text, collect_day
+import datetime as dt
+
+from gameanalyst.collect import Plan, backfill_text, collect_day, on_its_weekday
 from gameanalyst.report import table_rows
 from gameanalyst.store import RawArchive, Store
 from gameanalyst.study import game_rows
@@ -117,4 +119,27 @@ def test_an_older_file_counts_every_saved_game_as_checked(tmp_path):
     store.close()
     store = Store(tmp_path / "db.sqlite")
     assert store.db.execute("SELECT COUNT(*) FROM detail_checks").fetchone()[0] == 3
+
+
+def test_quiet_games_keep_one_weekday_for_their_checks(tmp_path):
+    rbx, _ = fake_roblox()
+    store = Store(tmp_path / "db.sqlite")
+    days = [(dt.date(2026, 11, 12) + dt.timedelta(n)).isoformat() for n in range(16)]
+    for day in days:
+        collect_on(tmp_path, store, rbx, day, quiet_below=2)  # A (1 player) is quiet, B (2 players) is busy
+
+    def checks(uid):
+        return [d for (d,) in store.db.execute("SELECT day FROM detail_checks WHERE universe_id = ? ORDER BY day", (uid,))]
+
+    assert checks(B) == days  # a busy game: every day
+    a = checks(A)
+    assert a[0] == days[0]  # never checked before: at once
+    later = [dt.date.fromisoformat(d) for d in a[1:]]
+    assert len(later) >= 2 and all(on_its_weekday(A, d.isoformat()) for d in later)
+    assert all((y - x).days == 7 for x, y in zip(later, later[1:]))  # then once a week, on the same weekday
+
+
+def test_each_day_checks_about_a_seventh_of_the_quiet_games():
+    due = [sum(on_its_weekday(uid, f"2026-11-{d}") for uid in range(7000)) for d in range(12, 19)]
+    assert due == [1000] * 7
 

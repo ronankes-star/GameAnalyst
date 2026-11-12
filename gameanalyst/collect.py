@@ -111,15 +111,24 @@ def pass_row(day: str, universe_id: int, game_pass: dict) -> dict:
     }
 
 
+def on_its_weekday(universe_id: int, day: str, every: int = 7) -> bool:
+    """Each quiet game has its own weekday, from its universe id. So each day checks about a seventh of them."""
+    return dt.date.fromisoformat(day).toordinal() % every == universe_id % every
+
+
 def needs_details(store: Store, plan: Plan, universe_id: int, day: str, playing: int | None) -> bool:
-    """Badges and passes cost two requests per game. A busy game gets them every day, a quiet one once a week.
+    """Badges and passes cost two requests per game. A busy game gets them every day. A quiet game gets them on its
+    own weekday, and at once when it was never checked or its last check is a week old (after missed days).
 
     Players, visits, favorites and votes come in cheap batches, so every game keeps those every day.
     """
     if (playing or 0) >= plan.quiet_below:
         return True
     last = store.last_details(universe_id, day)
-    return last is None or (dt.date.fromisoformat(day) - dt.date.fromisoformat(last)).days >= plan.detail_every
+    if last is None:
+        return True
+    age = (dt.date.fromisoformat(day) - dt.date.fromisoformat(last)).days
+    return age >= plan.detail_every or on_its_weekday(universe_id, day, plan.detail_every)
 
 
 def collect_day(
