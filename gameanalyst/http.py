@@ -1,4 +1,6 @@
-"""A polite JSON client: one request at a time, a minimum gap between requests, retries with backoff."""
+"""A polite JSON client: one request at a time, a minimum gap between two requests to the same host, retries with
+backoff. Requests to different hosts (badges.roblox.com, apis.roblox.com, ...) don't wait for each other, so each
+host still sees at most one request per `min_interval`."""
 
 from __future__ import annotations
 
@@ -37,22 +39,23 @@ def urllib_transport(url: str, headers: dict, timeout: float) -> tuple[int, dict
 @dataclass
 class Http:
     transport: Transport = urllib_transport
-    min_interval: float = 0.3  # seconds between two requests
+    min_interval: float = 0.3  # seconds between two requests to the same host
     max_retries: int = 5
     timeout: float = 30.0
     backoff_base: float = 1.0
     sleep: Callable[[float], None] = time.sleep
     clock: Callable[[], float] = time.monotonic
     requests_made: int = field(default=0, init=False)
-    _last: float | None = field(default=None, init=False, repr=False)
+    _last: dict[str, float] = field(default_factory=dict, init=False, repr=False)  # host -> time of last request
 
     def get_json(self, url: str, params: dict | None = None) -> dict:
         if params:
             url = f"{url}?{urllib.parse.urlencode(params, safe=',')}"
         headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+        host = urllib.parse.urlsplit(url).netloc
         status: int | None = None
         for attempt in range(self.max_retries + 1):
-            self._throttle()
+            self._throttle(host)
             try:
                 status, response_headers, body = self.transport(url, headers, self.timeout)
             except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
@@ -66,12 +69,13 @@ class Http:
                 self.sleep(self._wait_before_retry(attempt, response_headers))
         raise HttpError(url, status, "(gave up after retries)")
 
-    def _throttle(self) -> None:
-        if self._last is not None:
-            gap = self.min_interval - (self.clock() - self._last)
+    def _throttle(self, host: str) -> None:
+        last = self._last.get(host)
+        if last is not None:
+            gap = self.min_interval - (self.clock() - last)
             if gap > 0:
                 self.sleep(gap)
-        self._last = self.clock()
+        self._last[host] = self.clock()
 
     def _wait_before_retry(self, attempt: int, headers: dict) -> float:
         retry_after = {k.lower(): v for k, v in headers.items()}.get("retry-after")

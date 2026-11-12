@@ -54,6 +54,15 @@ def test_requests_are_spaced_by_min_interval():
     assert sleeps == [0.5]
 
 
+def test_each_host_has_its_own_gap():
+    http, sleeps = make(lambda url, headers, timeout: (200, {}, b"{}"), min_interval=0.5)
+    http.get_json("https://badges.x.test/a")
+    http.get_json("https://apis.x.test/b")  # another host: no wait
+    assert sleeps == []
+    http.get_json("https://badges.x.test/c")  # the same host again: it waits
+    assert sleeps == [0.5]
+
+
 def test_commas_in_id_lists_stay_readable():
     seen: list[str] = []
     http, _ = make(lambda url, headers, timeout: (seen.append(url), (200, {}, b"{}"))[1], min_interval=0)
