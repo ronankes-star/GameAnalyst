@@ -42,7 +42,8 @@ First experiment: a few hundred anime tower-defense games. Tag them, then check 
 ## Roadmap
 - [x] M1 Daily data collector: built 2026-11-12 (`python -m gameanalyst collect`). The Windows task
   "GameAnalyst daily" runs it at 12:30 PM local with `pythonw` (log: `data/logs/collect.log`, plus the `runs` table).
-- [ ] M2 Genre lists + the anime TD study (the riskiest-assumption test)
+- [ ] M2 Genre lists + the anime TD study (the riskiest-assumption test). First version 2026-11-12: `list` and
+  `study`, lists `anime-td` and `tower-defense`. Open: Ronan's check of the anime TD list, then more days of data.
 - [ ] M3 Model v0 + backtest + calibration report
 - [ ] M4 Breakdown report (LLM) for one game
 - [ ] M5 Web app
@@ -76,15 +77,45 @@ Checked on 2026-11-12 (public, no login):
   `statistics.pastDayAwardedCount` and `statistics.awardedCount`. `winRatePercentage` came back 0.0 for every
   badge, so don't rely on it. In games with progression badges, the counts show where players drop off.
   Paged by `cursor`.
+- `GET https://games.roblox.com/v2/groups/{groupId}/games?accessFilter=2&limit=50&sortOrder=Desc` and
+  `GET https://games.roblox.com/v2/users/{userId}/games?...` (same parameters) -> a creator's public games: `id`
+  (the universe id), name, description, placeVisits. Paged by `nextPageCursor`. Checked 2026-11-12. Not used:
+  the creators of 53 anime TD candidates had only 3 more anime TDs.
+- Dead ends, checked 2026-11-12: `games.roblox.com/v1/games/recommendations/game/{universeId}` answers with an
+  empty list, and `games.roblox.com/v1/games/list?keyword=...` is 404.
+- The games endpoint cuts `description` at 1,000 characters.
+
+## M2: genre lists + the anime TD study
+- `python -m gameanalyst list` sorts every game of a day into in / check / out for a genre list, with the reason
+  for each verdict. The words and Ronan's own decisions live in `lists/<name>.toml`. His decisions win over the
+  words. Don't rely on a list before he checks it (the "check" group, and a skim of "in").
+- `python -m gameanalyst study [NAME] [--mark OTHER] [--html out/NAME-study.html]` compares the hits of a list
+  with its flops and its faded games on one day. Tiers: hit 1,000+ players online; middle 20-999; faded under 20
+  now but 10M+ visits (big once); flop under 20, under 10M visits, 30+ days old; new under 20 and under 30 days old
+  (left out of the comparison). For each number: the median per tier, and "hit vs flop" / "hit vs faded" = the
+  AUC (the share of pairs where the hit is higher). It is "clear" only when its 95% range (Hanley-McNeil) leaves
+  out 50%. `--mark OTHER` adds a yes/no row: is the game also in list OTHER?
+- Lists: `anime-td` (genre + anime words; "maybe" words like Vocaloid or Touhou always go to "check") and
+  `tower-defense` (genre only, the comparison group).
+- Search, checked 2026-11-12: pages 1-3 hold a term's best matches. Deeper, about every third page holds more TD
+  games, mostly not anime. Franchise terms ("bleach tower defense") and anime name terms ("anime royale") found
+  almost no TD games that the general terms had not found. On 2026-11-12, 1,491 tracked games held 232 TD games
+  and only 39 anime TDs (+15 to check). Search favors games that were big once: 10 of the 16 quiet anime TDs had
+  10M+ visits. So the anime TD list grows mainly with time (new launches), not with more search terms.
 
 ## Code map
 - `gameanalyst/http.py`: the polite client (0.3 s between requests, retries with backoff, honors Retry-After).
 - `gameanalyst/roblox.py`: endpoint wrappers with their batch and page limits.
 - `gameanalyst/store.py`: SQLite tables (append-only, keyed by day) and the raw archive
-  `data/raw/<day>/<kind>.jsonl.gz`.
-- `gameanalyst/collect.py`: one daily run (find games, then save each tracked game).
-- `gameanalyst/report.py` and `gameanalyst/cli.py`: the `collect` and `show` commands.
-- `watch.toml`: search terms and Ronan's own place ids. `scripts/daily.cmd`: the entry point for a scheduler.
+  `data/raw/<day>/<kind>.jsonl.gz`. `game_text` keeps descriptions, one row per change. The file is in WAL mode,
+  so people can read while the daily run writes.
+- `gameanalyst/collect.py`: one daily run (find games, then save each tracked game). `backfill_text` fills
+  `game_text` from the raw archive (`python -m gameanalyst backfill-text`).
+- `gameanalyst/lists.py` and `lists/*.toml`: genre lists (in / check / out, with reasons).
+- `gameanalyst/study.py`: hits vs flops on one day. `gameanalyst/study_page.py`: the same as one web page.
+- `gameanalyst/report.py` and `gameanalyst/cli.py`: the text views and the commands.
+- `watch.toml`: search terms (with more pages for some terms) and Ronan's own place ids. `scripts/daily.cmd`: the
+  entry point for a scheduler.
 - `tests/`: a fake Roblox in `tests/fakes.py`. Tests never call the live API.
 
 ## Hard rules
