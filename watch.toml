@@ -1,0 +1,19 @@
+# What the daily run looks for, next to the Charts page.
+# A game stays tracked once it is found, so this list only has to grow.
+
+[search]
+queries = ["anime tower defense", "anime td", "tower defense anime", "anime defense"]
+pages = 2  # about 40 games per page
+
+[places]
+# Ronan's own games (place ids). The run turns them into universe ids.
+own = [
+  113058702384643,  # Superhero TD
+  126148013191356,  # Romance TD
+  87883827884201,   # My Zombie Restaurant
+  104237525424904,  # A Weird Boba Cafe
+  120692744191823,  # Hollowborn
+  73465103908325,   # EPISODE
+  137470815868209,  # Roll a Player TD (Avatar TD)
+  76472318687002,   # Slingshot Duels
+]

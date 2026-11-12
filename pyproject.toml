@@ -1,0 +1,14 @@
+[project]
+name = "gameanalyst"
+version = "0.1.0"
+description = "Explains why Roblox games succeed or fail, from daily public data."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []  # the collector uses the standard library only
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

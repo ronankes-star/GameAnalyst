@@ -1,0 +1,25 @@
+# data and outputs
+data/
+out/
+*.sqlite
+*.db
+*.parquet
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# node (web app later)
+node_modules/
+dist/
+
+# OS
+Thumbs.db
+.DS_Store
