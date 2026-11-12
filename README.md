@@ -2,17 +2,22 @@
 
 Why do some Roblox games take off while others don't, and what can a developer change?
 
-Game Analyst saves public data on thousands of Roblox games every day. It breaks down the core loops of the top
-games in each genre, and it compares your game with the winners. It gives odds, not promises, because luck is part
-of the answer.
+Game Analyst saves public data on thousands of Roblox games every day, in every genre. It breaks down the core
+loops of the top games in each genre, and it compares your game with the winners. It gives odds, not promises,
+because luck is part of the answer.
+
+Anime tower defense is the first genre that gets a deep study. It is the first test of the project's riskiest
+assumption: that what you can see from outside a game explains a useful share of its success. The same tools work
+for any genre.
 
 ## Status
 
 Milestone 1, the daily data collector, works. The first full run was on 2026-11-12.
 
 Milestone 2 has its first version: a genre list of anime tower-defense games, and a first look at what separates
-the hits from the flops in it (one day of data, no model). The list waits for Ronan's check. The plan for the
-next milestones is in [AGENTS.md](AGENTS.md).
+the hits from the flops in it (one day of data, no model). The list waits for Ronan's check. Next: discovery
+across all genres, so that every genre has its flops in the data too, not only its chart toppers. The plan for
+the next milestones is in [AGENTS.md](AGENTS.md).
 
 ## What the daily run saves
 

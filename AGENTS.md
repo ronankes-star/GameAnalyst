@@ -3,6 +3,10 @@
 An AI system that explains why Roblox games succeed or fail, and what a developer can change to do better.
 First user: Ronan, the owner, who runs several Roblox games. Later users: other Roblox developers.
 
+Scope: every kind of Roblox game, in every genre. Anime tower defense is only the first genre that gets a deep
+study, because it is the first test of the riskiest assumption. The data, the lists and the study work for any
+genre.
+
 Keep the work real and visible: small commits with clear messages, tests, and a README that stays true.
 
 ## How to work with Ronan
@@ -37,13 +41,18 @@ Keep the work real and visible: small commits with clear messages, tests, and a 
 ## Riskiest assumption
 Features that you can see from outside a game explain a useful share of its success, next to thumbnails, trends,
 YouTubers, ad spend and luck.
-First experiment: a few hundred anime tower-defense games. Tag them, then check what separates the hits from the flops.
+First experiment: anime tower-defense games. Tag them, then check what separates the hits from the flops. Search
+shows only about 40-55 of them, so all 232 TD games are the bigger comparison group. Then the same study runs for
+the other genres.
 
 ## Roadmap
 - [x] M1 Daily data collector: built 2026-11-12 (`python -m gameanalyst collect`). The Windows task
   "GameAnalyst daily" runs it at 12:30 PM local with `pythonw` (log: `data/logs/collect.log`, plus the `runs` table).
 - [ ] M2 Genre lists + the anime TD study (the riskiest-assumption test). First version 2026-11-12: `list` and
   `study`, lists `anime-td` and `tower-defense`. Open: Ronan's check of the anime TD list, then more days of data.
+- [ ] M2b Discovery across all genres, so that every genre has its flops in the data, not only its chart
+  toppers: read all 26 charts (see the endpoints), and add search terms per genre. Show Ronan the plan with the
+  expected run time first. The daily task stops a run after 2 hours.
 - [ ] M3 Model v0 + backtest + calibration report
 - [ ] M4 Breakdown report (LLM) for one game
 - [ ] M5 Web app
@@ -73,6 +82,10 @@ Checked on 2026-11-12 (public, no login):
   40 games per page, paged by `pageToken`.
 - `GET https://apis.roblox.com/explore-api/v1/get-sorts?sessionId={uuid}&device=computer&country=all` -> the
   Charts page: top-trending, up-and-coming, top-playing-now, fun-with-friends, top-revisited (about 320 games).
+  That is only the first page of charts. Pass `nextSortsPageToken` back as `sortsPageToken` to page on: 26 charts
+  in 5 pages, about 900 games. They include top-earning, top-paid-access, top-rated, most-popular, and
+  "trending-in-<genre>" for 15 genres. The only filters are device and country. There is no genre filter, and a
+  genre parameter changes nothing (checked 2026-11-12). The collector still reads only the first page.
 - `GET https://badges.roblox.com/v1/universes/{universeId}/badges?limit=100` -> per badge
   `statistics.pastDayAwardedCount` and `statistics.awardedCount`. `winRatePercentage` came back 0.0 for every
   badge, so don't rely on it. In games with progression badges, the counts show where players drop off.
