@@ -38,7 +38,19 @@ def test_show_can_keep_only_the_games_in_a_list(tmp_path, capsys):
     assert "Game 1001" in out and "Game 1002" not in out
 
 
+def test_study_prints_the_comparison_and_writes_a_web_page(tmp_path, capsys):
+    page = tmp_path / "out" / "study.html"
+    assert main([*fake_data(tmp_path), "study", "--html", str(page)]) == 0
+    assert "Hit vs flop" in capsys.readouterr().out
+    assert page.read_text(encoding="utf-8").startswith("<!doctype html>")
+
+
 def test_an_unknown_list_says_so(tmp_path, capsys):
     assert main([*fake_data(tmp_path), "list", "nope"]) == 1
     assert "No list called nope" in capsys.readouterr().out
 
+
+def test_study_can_mark_the_games_of_another_list(tmp_path, capsys):
+    assert main([*fake_data(tmp_path), "study", "tower-defense", "--mark", "anime-td"]) == 0
+    out = capsys.readouterr().out
+    assert "3 games in the list" in out and "In the anime tower defense list" in out

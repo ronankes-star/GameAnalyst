@@ -1,4 +1,4 @@
-"""Command line: `collect`, `show`, `list` (a genre list and its checks)."""
+"""Command line: `collect`, `show`, `list` (a genre list and its checks), `study` (hits vs flops)."""
 
 from __future__ import annotations
 
@@ -10,10 +10,12 @@ from pathlib import Path
 
 from .collect import Plan, backfill_text, collect_day, stamp, utc_now
 from .http import Http
-from .lists import Rules, build, list_path, members
-from .report import format_review, format_table, latest_day, table_rows
+from .lists import IN, Rules, build, list_path, members
+from .report import format_review, format_table, latest_day, list_note, table_rows
 from .roblox import Roblox
 from .store import RawArchive, Store
+from .study import format_study, run_study
+from .study_page import study_page
 
 
 def load_watch(path: str | Path) -> dict:
@@ -59,6 +61,13 @@ def main(argv: list[str] | None = None) -> int:
     lists.add_argument("--day", help="YYYY-MM-DD (default: the latest day)")
     lists.add_argument("--all", action="store_true", help="also print the games in the list and the ones left out")
 
+    study = commands.add_parser("study", help="hits vs flops in a genre list, on one day")
+    study.add_argument("name", nargs="?", default="anime-td", help="the list (default: anime-td)")
+    study.add_argument("--day", help="YYYY-MM-DD (default: the latest day)")
+    study.add_argument("--html", help="also write the report as a web page to this file")
+    study.add_argument("--mark", action="append", default=[], metavar="LIST",
+                       help="add a yes/no row: is the game also in this list? (repeatable)")
+
     parser.add_argument("--lists", default="lists", help="folder of genre lists (default: lists)")
     args = parser.parse_args(argv)
     data = Path(args.data)
@@ -75,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "list":
             return run_list(args, store)
+        if args.command == "study":
+            return run_study_command(args, store)
         return run_show(args, store)
     finally:
         store.close()
@@ -158,4 +169,29 @@ def run_list(args: argparse.Namespace, store: Store) -> int:
         return 1
     rules, day = found
     print(format_review(build(store, rules, day), rules, day, list_path(args.lists, rules.name), show_all=args.all))
+    return 0
+
+
+def run_study_command(args: argparse.Namespace, store: Store) -> int:
+    found = rules_and_day(args, store)
+    if found is None:
+        return 1
+    rules, day = found
+    decisions = build(store, rules, day)
+    ids = {game["universe_id"] for game, decision in decisions if decision.verdict == IN}
+    marks = {}
+    for name in args.mark:
+        path = list_path(args.lists, name)
+        if not path.exists():
+            print(f"No list called {name}: {path} does not exist.")
+            return 1
+        other = Rules.load(path)
+        marks[name] = (other.title, members(store, other, day))
+    result = run_study(store, day, ids, marks)
+    print(format_study(result, rules.title, list_note(decisions)))
+    if args.html:
+        path = Path(args.html)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(study_page(result, rules, decisions), encoding="utf-8", newline="\n")
+        print(f"\nWrote {path}")
     return 0
