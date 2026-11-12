@@ -12,7 +12,7 @@ def test_a_day_is_saved(tmp_path):
     assert count(store, "game_daily") == 3
     assert count(store, "badge_daily") == 9  # 3 badges for each of 3 games
     assert count(store, "pass_daily") == 3
-    assert count(store, "chart_daily") == 2
+    assert count(store, "chart_daily") == 3  # two games in top-playing-now, one in top-earning
     assert count(store, "search_daily") == 2
     assert count(store, "runs") == 1
     sources = dict(store.db.execute("SELECT universe_id, source FROM tracked_games"))

@@ -64,7 +64,10 @@ class FakeRoblox:
     def route(self, u, q: dict) -> dict | None:
         ids = [int(x) for x in q["universeIds"].split(",")] if "universeIds" in q else []
         if u.path.endswith("/get-sorts"):
-            return {"sorts": [
+            if q.get("sortsPageToken") == "s2":  # the second page of charts
+                return {"sorts": [{"sortId": "top-earning", "contentType": "Games",
+                                   "games": [{"universeId": A, "playerCount": 900}]}]}
+            return {"nextSortsPageToken": "s2", "sorts": [
                 {"sortId": "filters_v5", "contentType": "Filters"},
                 {"sortId": "top-playing-now", "contentType": "Games",
                  "games": [{"universeId": A, "playerCount": 900}, {"universeId": B, "playerCount": 50}]},

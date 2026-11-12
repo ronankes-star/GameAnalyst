@@ -87,14 +87,26 @@ class Roblox:
                 break
         return found
 
-    def charts(self) -> dict[str, list[dict]]:
-        """The Charts page: sort id (top-trending, up-and-coming, top-playing-now, ...) -> ranked games."""
-        page = self.http.get_json(SORTS, {"sessionId": self.session_id, "device": "computer", "country": "all"})
-        return {
-            sort["sortId"]: sort["games"]
-            for sort in page.get("sorts", [])
-            if sort.get("contentType") == "Games" and sort.get("games")
-        }
+    def charts(self, max_pages: int = 10) -> dict[str, list[dict]]:
+        """Every chart on the Charts page: sort id (top-trending, top-earning, trending-in-rpg, ...) -> ranked games.
+
+        The page sends its charts a few at a time. `nextSortsPageToken` leads to the next few: 26 charts in 5 pages
+        on 2026-11-12, among them a "trending-in-<genre>" chart for 15 genres.
+        """
+        found: dict[str, list[dict]] = {}
+        token = None
+        for _ in range(max_pages):
+            params = {"sessionId": self.session_id, "device": "computer", "country": "all"}
+            if token:
+                params["sortsPageToken"] = token
+            page = self.http.get_json(SORTS, params)
+            for sort in page.get("sorts", []):
+                if sort.get("contentType") == "Games" and sort.get("games"):
+                    found.setdefault(sort["sortId"], sort["games"])
+            token = page.get("nextSortsPageToken")
+            if not token:
+                break
+        return found
 
     def universe_for_place(self, place_id: int) -> int:
         return int(self.http.get_json(PLACE_UNIVERSE.format(pid=place_id))["universeId"])

@@ -33,7 +33,14 @@ def test_search_stops_at_the_page_limit():
 
 def test_charts_skip_rows_that_are_not_games():
     rbx, _ = fake_roblox()
-    assert list(rbx.charts()) == ["top-playing-now"]
+    assert list(rbx.charts()) == ["top-playing-now", "top-earning"]
+
+
+def test_charts_follow_the_pages_of_charts():
+    rbx, fake = fake_roblox()
+    assert [g["universeId"] for g in rbx.charts()["top-earning"]] == [A]
+    assert sum("/get-sorts" in url for url in fake.urls) == 2 and "sortsPageToken=s2" in fake.urls[-1]
+    assert list(rbx.charts(max_pages=1)) == ["top-playing-now"]
 
 
 def test_a_place_id_turns_into_its_universe_id():
