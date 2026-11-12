@@ -2,8 +2,27 @@
 # A game stays tracked once it is found, so this list only has to grow.
 
 [search]
-queries = ["anime tower defense", "anime td", "tower defense anime", "anime defense"]
-pages = 2  # about 40 games per page
+pages = 3  # pages per term, about 40 games per page. Pages 1-3 hold a term's best matches.
+queries = [
+  # anime tower defense
+  "anime tower defense", "anime td", "tower defense anime", "anime defense", "anime defenders",
+  "anime tower defense simulator",
+  # every tower defense: the comparison group, and the anime TDs whose names have no anime word
+  "tower defense", "td",
+  # franchises and known anime TD titles
+  "one piece tower defense", "naruto tower defense", "dragon ball tower defense", "jujutsu tower defense",
+  "demon slayer tower defense", "bleach tower defense", "solo leveling tower defense", "chainsaw man tower defense",
+  "hunter x hunter tower defense", "one punch man tower defense", "black clover tower defense",
+  "waifu tower defense", "all star tower defense", "ultimate tower defense", "universal tower defense",
+]
+
+[search.more_pages]
+# Terms that still found new TD games 15 pages deep (checked 2026-11-12). Every third page held most of them.
+# "tower defense" goes deepest: its deep pages feed the tower-defense list, the comparison group.
+"anime tower defense" = 15
+"tower defense" = 30
+"anime td" = 15
+"td" = 10
 
 [places]
 # Ronan's own games (place ids). The run turns them into universe ids.

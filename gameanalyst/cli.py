@@ -8,7 +8,7 @@ import tomllib
 import traceback
 from pathlib import Path
 
-from .collect import Plan, collect_day, stamp, utc_now
+from .collect import Plan, backfill_text, collect_day, stamp, utc_now
 from .http import Http
 from .report import format_table, latest_day, table_rows
 from .roblox import Roblox
@@ -43,6 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--no-charts", action="store_true", help="skip the Charts page")
     collect.add_argument("--no-search", action="store_true", help="skip the search terms")
 
+    commands.add_parser("backfill-text", help="fill the descriptions table from the raw archive (safe to repeat)")
+
     show = commands.add_parser("show", help="print one day's numbers")
     show.add_argument("--day", help="YYYY-MM-DD (default: the latest day)")
     show.add_argument("--query", help="only games from this search term")
@@ -60,6 +62,9 @@ def main(argv: list[str] | None = None) -> int:
             except Exception:
                 log_line(data, f"{stamp()} run failed:\n{traceback.format_exc()}")
                 raise
+        if args.command == "backfill-text":
+            print(f"Saved {backfill_text(store, data / 'raw')} descriptions from {data / 'raw'}.")
+            return 0
         return run_show(args, store)
     finally:
         store.close()
@@ -68,9 +73,12 @@ def main(argv: list[str] | None = None) -> int:
 def run_collect(args: argparse.Namespace, store: Store, data: Path) -> int:
     watch = load_watch(args.watch)
     search = watch.get("search", {})
+    more_pages = {str(term): int(pages) for term, pages in search.get("more_pages", {}).items()}
+    queries = list(dict.fromkeys([*search.get("queries", []), *more_pages]))
     plan = Plan(
-        queries=[] if args.no_search else list(search.get("queries", [])),
+        queries=[] if args.no_search else queries,
         search_pages=int(search.get("pages", 2)),
+        query_pages=more_pages,
         place_ids=list(watch.get("places", {}).get("own", [])),
         use_charts=not args.no_charts,
         limit=args.limit,

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable
 
 from .http import HttpError
@@ -18,6 +19,7 @@ from .store import RawArchive, Store
 class Plan:
     queries: list[str] = field(default_factory=list)
     search_pages: int = 2
+    query_pages: dict[str, int] = field(default_factory=dict)  # search terms that get more (or fewer) pages
     place_ids: list[int] = field(default_factory=list)
     use_charts: bool = True
     limit: int | None = None  # collect at most this many games (for quick tests)
@@ -55,7 +57,7 @@ def discover(rbx: Roblox, store: Store, raw: RawArchive, plan: Plan, day: str, r
             for game in games:
                 track(game["universeId"], f"chart:{sort_id}")
     for query in plan.queries:
-        hits = rbx.search(query, pages=plan.search_pages)
+        hits = rbx.search(query, pages=plan.query_pages.get(query, plan.search_pages))
         raw.write("search", query, hits)
         store.add("search_daily", [ranked_row(day, rank, hit, query=query) for rank, hit in enumerate(hits, 1)])
         for hit in hits:
@@ -136,6 +138,7 @@ def collect_day(
             continue
         raw.write("games", uid, {"game": game, "votes": votes.get(uid), "icon": icons.get(uid)})
         store.add("game_daily", [game_row(day, uid, game, votes.get(uid, {}), icons.get(uid, {}), stamp())])
+        store.save_text(day, uid, game.get("description"))
         try:
             badges = rbx.badges(uid, plan.badge_pages)
             raw.write("badges", uid, badges)
@@ -152,3 +155,17 @@ def collect_day(
 
     store.log_run(started, stamp(), day, result.collected, rbx.http.requests_made, result.errors)
     return result
+
+
+def backfill_text(store: Store, raw_root: str | Path) -> int:
+    """Fill game_text from the raw archive, for the days collected before descriptions had a table.
+
+    It is safe to run again: a description that is already saved is not saved twice. Returns the rows added.
+    """
+    added = 0
+    for day in RawArchive.days(raw_root):
+        for key, payload in RawArchive.read(raw_root, day, "games"):
+            game = (payload or {}).get("game") or {}
+            added += store.save_text(day, int(key), game.get("description"))
+        store.commit()
+    return added

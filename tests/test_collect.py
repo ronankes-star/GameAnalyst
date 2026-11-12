@@ -1,3 +1,4 @@
+from gameanalyst.collect import backfill_text
 from tests.fakes import A, B, C, DAY, FakeRoblox, run_fake_day
 
 
@@ -53,3 +54,23 @@ def test_one_broken_game_does_not_stop_the_run(tmp_path):
 def test_rate_limits_are_waited_out(tmp_path):
     result, _ = run_fake_day(tmp_path, fake=FakeRoblox(throttle_429={"/game-passes": 2}))
     assert result.collected == 3 and result.errors == []
+
+
+def test_descriptions_are_saved_with_the_games(tmp_path):
+    _, store = run_fake_day(tmp_path)
+    texts = store.texts(DAY)
+    assert texts[A].startswith("Summon units") and texts[C] == ""
+
+
+def test_a_term_can_get_its_own_page_count(tmp_path):
+    fake = FakeRoblox()
+    run_fake_day(tmp_path, fake=fake, search_pages=2, query_pages={"anime td": 1})
+    assert sum("/omni-search" in url for url in fake.urls) == 1
+
+
+def test_backfill_fills_descriptions_from_the_raw_archive(tmp_path):
+    _, store = run_fake_day(tmp_path)
+    store.db.execute("DELETE FROM game_text")
+    assert backfill_text(store, tmp_path / "raw") == 3
+    assert backfill_text(store, tmp_path / "raw") == 0  # safe to run again
+    assert store.texts(DAY)[B].startswith("Place cameramen")

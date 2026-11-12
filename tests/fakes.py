@@ -16,9 +16,15 @@ PLACE_OF_C = 555
 DAY = "2026-11-12"
 
 
+DESCRIPTIONS = {  # A reads like an anime TD, B like a toilet TD, C has no description
+    A: "Summon units from your favorite anime worlds and defend the base!",
+    B: "Place cameramen to fight back against the toilets!",
+}
+
+
 def game(uid: int) -> dict:
     return {
-        "id": uid, "rootPlaceId": uid * 10, "name": f"[UPD 3] Game {uid}",
+        "id": uid, "rootPlaceId": uid * 10, "name": f"[UPD 3] Game {uid}", "description": DESCRIPTIONS.get(uid, ""),
         "creator": {"id": 7, "name": "Studio", "type": "Group", "hasVerifiedBadge": False},
         "playing": uid - 1000, "visits": uid * 1000, "favoritedCount": uid,
         "created": "2026-01-01T00:00:00Z", "updated": "2026-11-10T00:00:00Z",

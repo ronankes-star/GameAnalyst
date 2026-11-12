@@ -10,10 +10,11 @@ import gzip
 import json
 import sqlite3
 from pathlib import Path
-from typing import TextIO
+from typing import Iterator, TextIO
 
 TABLES = (
-    "tracked_games", "game_sources", "game_daily", "badge_daily", "pass_daily", "chart_daily", "search_daily", "runs",
+    "tracked_games", "game_sources", "game_daily", "game_text", "badge_daily", "pass_daily", "chart_daily",
+    "search_daily", "runs",
 )
 
 SCHEMA = """
@@ -26,7 +27,6 @@ CREATE TABLE IF NOT EXISTS game_sources (  -- every way a game was found, not on
     universe_id INTEGER NOT NULL, source TEXT NOT NULL, first_seen TEXT NOT NULL,
     PRIMARY KEY (universe_id, source)
 );
-INSERT OR IGNORE INTO game_sources SELECT universe_id, source, first_seen FROM tracked_games;
 CREATE TABLE IF NOT EXISTS game_daily (
     day TEXT NOT NULL, universe_id INTEGER NOT NULL,
     root_place_id INTEGER, name TEXT,
@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS game_daily (
     created TEXT, updated TEXT, genre_l1 TEXT, genre_l2 TEXT, max_players INTEGER, price INTEGER,
     icon_url TEXT, collected_at TEXT NOT NULL,
     PRIMARY KEY (day, universe_id)
+);
+CREATE TABLE IF NOT EXISTS game_text (  -- a game's description, saved only on the days it changed
+    day TEXT NOT NULL, universe_id INTEGER NOT NULL, description TEXT,
+    PRIMARY KEY (universe_id, day)
 );
 CREATE TABLE IF NOT EXISTS badge_daily (
     day TEXT NOT NULL, universe_id INTEGER NOT NULL, badge_id INTEGER NOT NULL,
@@ -64,11 +68,22 @@ CREATE TABLE IF NOT EXISTS runs (
 
 
 class Store:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, timeout: float = 60.0):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.path)
+        self.db = sqlite3.connect(self.path, timeout=timeout)
+        # WAL: people can read (show, list, study) while the daily run writes, and neither side waits.
+        self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """One-time fixes for files made by older versions. They write only when there is work to do."""
+        if self.db.execute(
+            "SELECT NOT EXISTS (SELECT 1 FROM game_sources) AND EXISTS (SELECT 1 FROM tracked_games)"
+        ).fetchone()[0]:  # game_sources came after tracked_games
+            self.db.execute("INSERT OR IGNORE INTO game_sources SELECT universe_id, source, first_seen FROM tracked_games")
+            self.db.commit()
 
     def close(self) -> None:
         self.db.close()
@@ -104,6 +119,28 @@ class Store:
         self.db.executemany(sql, [tuple(row[c] for c in columns) for row in rows])
         return self.db.total_changes - before
 
+    def save_text(self, day: str, universe_id: int, description: str | None) -> bool:
+        """Save a game's description when it differs from the last one saved. Returns True when a row was added."""
+        last = self.db.execute(
+            "SELECT description FROM game_text WHERE universe_id = ? AND day <= ? ORDER BY day DESC LIMIT 1",
+            (universe_id, day),
+        ).fetchone()
+        text = description or ""
+        if last is not None and last[0] == text:
+            return False
+        cursor = self.db.execute("INSERT OR IGNORE INTO game_text VALUES (?, ?, ?)", (day, universe_id, text))
+        return cursor.rowcount == 1
+
+    def texts(self, day: str) -> dict[int, str]:
+        """The description of every game as it was on this day (the last change on or before it)."""
+        rows = self.db.execute(
+            """SELECT t.universe_id, t.description FROM game_text t
+               JOIN (SELECT universe_id, MAX(day) AS day FROM game_text WHERE day <= ? GROUP BY universe_id) last
+               ON t.universe_id = last.universe_id AND t.day = last.day""",
+            (day,),
+        )
+        return dict(rows.fetchall())
+
     def log_run(self, started: str, finished: str, day: str, games: int, requests: int, errors: list[str]) -> None:
         self.db.execute(
             "INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -135,3 +172,20 @@ class RawArchive:
         for handle in self._files.values():
             handle.close()
         self._files.clear()
+
+    @staticmethod
+    def days(root: str | Path) -> list[str]:
+        """The days in the archive, oldest first."""
+        folder = Path(root)
+        return sorted(p.name for p in folder.iterdir() if p.is_dir()) if folder.exists() else []
+
+    @staticmethod
+    def read(root: str | Path, day: str, kind: str) -> Iterator[tuple[object, object]]:
+        """Every (key, payload) saved for one kind on one day, in the order it was written."""
+        file = Path(root) / day / f"{kind}.jsonl.gz"
+        if not file.exists():
+            return
+        with gzip.open(file, "rt", encoding="utf-8") as handle:
+            for line in handle:
+                record = json.loads(line)
+                yield record["key"], record["data"]
