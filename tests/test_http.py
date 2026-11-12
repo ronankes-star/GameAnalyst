@@ -54,6 +54,18 @@ def test_requests_are_spaced_by_min_interval():
     assert sleeps == [0.5]
 
 
+def test_a_host_that_answers_429_gets_a_longer_gap():
+    answers = iter([(429, {"Retry-After": "0"}, b""), (429, {"Retry-After": "0"}, b""), (200, {}, b"{}")]
+                   + [(200, {}, b"{}")] * 200)
+    http, _ = make(lambda url, headers, timeout: next(answers), min_interval=0.5, max_interval=1.5)
+    http.get_json("https://badges.x.test/a")
+    assert http.gap("badges.x.test") == pytest.approx(1.5 * 0.98)  # 0.5 -> 1.0 -> 1.5 (the cap), then one success
+    assert http.gap("apis.x.test") == 0.5  # other hosts keep their pace
+    for _ in range(100):
+        http.get_json("https://badges.x.test/a")
+    assert http.gap("badges.x.test") == 0.5  # back to normal after many good answers
+
+
 def test_each_host_has_its_own_gap():
     http, sleeps = make(lambda url, headers, timeout: (200, {}, b"{}"), min_interval=0.5)
     http.get_json("https://badges.x.test/a")

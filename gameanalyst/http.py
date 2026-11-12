@@ -1,6 +1,6 @@
 """A polite JSON client: one request at a time, a minimum gap between two requests to the same host, retries with
-backoff. Requests to different hosts (badges.roblox.com, apis.roblox.com, ...) don't wait for each other, so each
-host still sees at most one request per `min_interval`."""
+backoff. A host that answers 429 ("too many requests") gets a longer gap, up to `max_interval`. The gap shrinks
+slowly again while the host answers normally."""
 
 from __future__ import annotations
 
@@ -40,6 +40,7 @@ def urllib_transport(url: str, headers: dict, timeout: float) -> tuple[int, dict
 class Http:
     transport: Transport = urllib_transport
     min_interval: float = 0.3  # seconds between two requests to the same host
+    max_interval: float = 5.0  # the longest gap after many 429 answers
     max_retries: int = 5
     timeout: float = 30.0
     backoff_base: float = 1.0
@@ -47,6 +48,7 @@ class Http:
     clock: Callable[[], float] = time.monotonic
     requests_made: int = field(default=0, init=False)
     _last: dict[str, float] = field(default_factory=dict, init=False, repr=False)  # host -> time of last request
+    _gap: dict[str, float] = field(default_factory=dict, init=False, repr=False)  # host -> its gap right now
 
     def get_json(self, url: str, params: dict | None = None) -> dict:
         if params:
@@ -61,6 +63,7 @@ class Http:
             except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
                 status, response_headers, body = None, {}, str(e).encode()
             self.requests_made += 1
+            self._adapt(host, status)
             if status == 200:
                 return json.loads(body)
             if status is not None and status not in RETRY_STATUSES:
@@ -69,13 +72,23 @@ class Http:
                 self.sleep(self._wait_before_retry(attempt, response_headers))
         raise HttpError(url, status, "(gave up after retries)")
 
+    def gap(self, host: str) -> float:
+        return self._gap.get(host, self.min_interval)
+
     def _throttle(self, host: str) -> None:
         last = self._last.get(host)
         if last is not None:
-            gap = self.min_interval - (self.clock() - last)
-            if gap > 0:
-                self.sleep(gap)
+            wait = self.gap(host) - (self.clock() - last)
+            if wait > 0:
+                self.sleep(wait)
         self._last[host] = self.clock()
+
+    def _adapt(self, host: str, status: int | None) -> None:
+        """Double the host's gap after a 429. After a normal answer, shrink it by 2% (about 35 answers to halve)."""
+        if status == 429:
+            self._gap[host] = min(self.gap(host) * 2, self.max_interval)
+        elif status == 200 and host in self._gap:
+            self._gap[host] = max(self.gap(host) * 0.98, self.min_interval)
 
     def _wait_before_retry(self, attempt: int, headers: dict) -> float:
         retry_after = {k.lower(): v for k, v in headers.items()}.get("retry-after")
