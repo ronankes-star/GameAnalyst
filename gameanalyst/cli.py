@@ -1,4 +1,4 @@
-"""Command line: `python -m gameanalyst collect` and `python -m gameanalyst show`."""
+"""Command line: `collect`, `show`, `list` (a genre list and its checks)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from pathlib import Path
 
 from .collect import Plan, backfill_text, collect_day, stamp, utc_now
 from .http import Http
-from .report import format_table, latest_day, table_rows
+from .lists import Rules, build, list_path, members
+from .report import format_review, format_table, latest_day, table_rows
 from .roblox import Roblox
 from .store import RawArchive, Store
 
@@ -50,8 +51,15 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("--query", help="only games from this search term")
     show.add_argument("--chart", help="only games from this chart, e.g. top-trending")
     show.add_argument("--own", action="store_true", help="only your own games (the places in watch.toml)")
+    show.add_argument("--list", dest="list_name", help="only games in this genre list, e.g. anime-td")
     show.add_argument("--top", type=int, default=20)
 
+    lists = commands.add_parser("list", help="a genre list: which games are in, which need a check, and why")
+    lists.add_argument("name", nargs="?", default="anime-td", help="the list (default: anime-td)")
+    lists.add_argument("--day", help="YYYY-MM-DD (default: the latest day)")
+    lists.add_argument("--all", action="store_true", help="also print the games in the list and the ones left out")
+
+    parser.add_argument("--lists", default="lists", help="folder of genre lists (default: lists)")
     args = parser.parse_args(argv)
     data = Path(args.data)
     store = Store(data / "gameanalyst.sqlite")
@@ -65,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "backfill-text":
             print(f"Saved {backfill_text(store, data / 'raw')} descriptions from {data / 'raw'}.")
             return 0
+        if args.command == "list":
+            return run_list(args, store)
         return run_show(args, store)
     finally:
         store.close()
@@ -111,6 +121,41 @@ def run_show(args: argparse.Namespace, store: Store) -> int:
     if not day:
         print("No data yet. Run: python -m gameanalyst collect")
         return 1
-    rows = table_rows(store, day, query=args.query, chart=args.chart, own=args.own, top=args.top)
+    ids = None
+    if args.list_name:
+        rules = load_rules(args)
+        if rules is None:
+            return 1
+        ids = members(store, rules, day)
+    rows = table_rows(store, day, query=args.query, chart=args.chart, own=args.own, top=args.top, ids=ids)
     print(format_table(rows, day))
+    return 0
+
+
+def load_rules(args: argparse.Namespace) -> Rules | None:
+    name = getattr(args, "list_name", None) or args.name
+    path = list_path(args.lists, name)
+    if not path.exists():
+        print(f"No list called {name}: {path} does not exist.")
+        return None
+    return Rules.load(path)
+
+
+def rules_and_day(args: argparse.Namespace, store: Store) -> tuple[Rules, str] | None:
+    rules = load_rules(args)
+    if rules is None:
+        return None
+    day = args.day or latest_day(store)
+    if not day:
+        print("No data yet. Run: python -m gameanalyst collect")
+        return None
+    return rules, day
+
+
+def run_list(args: argparse.Namespace, store: Store) -> int:
+    found = rules_and_day(args, store)
+    if found is None:
+        return 1
+    rules, day = found
+    print(format_review(build(store, rules, day), rules, day, list_path(args.lists, rules.name), show_all=args.all))
     return 0

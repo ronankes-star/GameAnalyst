@@ -1,0 +1,85 @@
+# The anime tower-defense list. `python -m gameanalyst list` shows what these rules decide, with the reasons.
+#
+# How a game gets its verdict:
+# - in:    Roblox files it under Tower Defense, it shows the anime theme, and it shows no other theme.
+# - check: the signs disagree (anime and another theme, only one weak sign, or TD words in the name of a game that
+#          Roblox files under another genre). A person decides.
+# - out:   not Tower Defense, another theme, or no anime words at all.
+# Words match whole words in the name and the description, in any case. Your decisions at the bottom win over them.
+
+name = "anime-td"
+title = "Anime tower defense"
+
+[genre]
+genre_l2 = ["Tower Defense"]
+# Name words that show a TD game when Roblox files it under another genre. Such a game goes to "check" when it
+# also shows the anime theme.
+name_words = ["tower defense", "tower defence", "td", "defense", "defence", "defender", "defenders"]
+
+[theme]
+# General anime words. In the name, one is enough. In the description alone, one is a weak sign and two are enough.
+words = [
+  "anime", "animes", "アニメ", "manga", "waifu", "waifus", "husbando", "otaku", "senpai", "kawaii", "chibi",
+  "shonen", "shounen", "isekai",
+]
+# Franchises and their short forms. One is enough, in the name or the description.
+franchises = [
+  "one piece", "naruto", "naruto shippuden", "boruto", "dragon ball", "dragonball", "dbz", "dbs", "bleach", "tybw",
+  "jujutsu kaisen", "jujutsu", "jjk", "demon slayer", "kimetsu", "kimetsu no yaiba", "hunter x hunter", "hxh",
+  "my hero academia", "boku no hero", "mha", "bnha", "attack on titan", "shingeki", "aot", "one punch man",
+  "one punch", "opm", "jojo", "jojos", "jjba", "black clover", "chainsaw man", "solo leveling", "tokyo ghoul",
+  "fairy tail", "sword art online", "seven deadly sins", "fire force", "blue lock", "haikyuu", "kaiju no 8",
+  "dandadan", "frieren", "spy x family", "sakamoto days", "mob psycho", "re zero", "konosuba", "tensura",
+  "death note", "evangelion", "gintama", "inuyasha", "yu yu hakusho", "yugioh", "yu gi oh", "sailor moon",
+  "vinland saga", "tokyo revengers", "baki", "kengan", "record of ragnarok", "mushoku tensei", "dr stone",
+  "kagurabachi", "gachiakuta", "wistoria", "undead unluck", "hells paradise", "code geass", "soul eater",
+  "fullmetal alchemist", "promised neverland", "akatsuki", "hokage", "shinobi", "jutsu", "chakra", "sharingan",
+  "rasengan", "saiyan", "super saiyan", "kamehameha", "ultra instinct", "bankai", "zanpakuto", "shinigami",
+  "soul reaper", "hashira", "domain expansion", "cursed energy", "cursed technique",
+  "devil fruit", "haki", "grand line",
+]
+# Characters. One is enough.
+characters = [
+  "goku", "vegeta", "gohan", "frieza", "broly", "beerus", "gogeta", "vegito", "majin buu", "luffy", "zoro", "sanji",
+  "shanks", "kaido", "whitebeard", "kizaru", "akainu", "naruto uzumaki", "sasuke", "itachi", "kakashi", "madara",
+  "obito", "minato", "jiraiya", "gojo", "sukuna", "itadori", "yuji", "megumi", "toji", "geto", "mahito", "nanami",
+  "yuta", "tanjiro", "nezuko", "zenitsu", "inosuke", "rengoku", "muzan", "akaza", "kokushibo", "muichiro", "giyu",
+  "ichigo", "aizen", "byakuya", "kenpachi", "yhwach", "rukia", "urahara", "ulquiorra", "grimmjow", "saitama",
+  "genos", "garou", "tatsumaki", "boros", "eren", "levi", "mikasa", "deku", "bakugo", "todoroki", "all might",
+  "denji", "makima", "pochita", "jinwoo", "jin woo", "igris", "asta", "yuno", "killua", "gon freecss", "hisoka",
+  "meruem", "chrollo", "netero", "jotaro", "giorno", "jolyne", "josuke", "dio brando", "kaneki", "natsu", "kirito",
+  "rimuru", "ainz", "megumin", "senku",
+]
+# Known anime TD titles whose names have no anime word. One is enough.
+titles = [
+  "vanguards", "all star tower defense", "astd", "ultimate tower defense", "utd", "universal tower defense",
+  "re rangers", "sorcerer tower defense",
+]
+# Weak signs. Games inspired by anime IP often carry these disclaimers. Two weak signs together are enough.
+weak = [
+  "inspired content created out of admiration", "third party intellectual property",
+  "anime universe", "anime universes", "anime worlds", "anime heroes", "anime units", "anime characters",
+]
+# Anime-style games and music. Many fans count them as anime, some don't. One of them sends a game to "check".
+maybe = [
+  "vocaloid", "hatsune miku", "touhou", "blue archive", "kivotos", "uma musume", "cygames", "genshin", "honkai",
+  "hololive", "pokemon", "digimon",
+]
+
+[other_theme]
+# Words of another theme. With no anime sign, the game is out. With an anime sign too, it goes to "check".
+words = [
+  "toilet", "toilets", "skibidi", "skibi", "cameraman", "cameramen", "camera man", "camera men", "speakerman",
+  "speakermen", "speaker man", "tv man", "tvman", "tv men", "five nights", "fnaf", "fntd", "animatronic",
+  "animatronics", "freddy", "freddys", "undertale", "deltarune", "spongebob", "bikini bottom", "angry birds",
+  "stickman", "stick man", "noob", "noobs", "plants vs", "pvz", "garden", "war of 1812", "ww2", "wwii", "trench",
+  "plushie", "plushies", "doodle", "doodles", "minecraft", "lego", "brainrot",
+  "brainrots", "tralalero", "tung tung", "sahur", "rainbow friends", "huggy", "poppy playtime", "banban", "sonic",
+  "mario", "backrooms", "piggy", "terraria",
+]
+
+# Your decisions. They win over the words. One line per game: universe id = "a short note".
+# Example: 1234567890 = "anime art in the icon"
+[include]
+
+[exclude]

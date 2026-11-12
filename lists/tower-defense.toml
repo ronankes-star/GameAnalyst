@@ -1,0 +1,16 @@
+# Every tower defense game, any theme. It is the bigger comparison group for the anime TD study.
+# `python -m gameanalyst study tower-defense --mark anime-td` compares its hits and flops, and shows how many of
+# them are anime TDs. With no theme words, the genre alone decides: Roblox files the game as Tower Defense ("in"),
+# or the name says TD while Roblox files it elsewhere ("check").
+
+name = "tower-defense"
+title = "Tower defense"
+
+[genre]
+genre_l2 = ["Tower Defense"]
+name_words = ["tower defense", "tower defence", "td"]
+
+# Your decisions. They win over the genre. One line per game: universe id = "a short note".
+[include]
+
+[exclude]

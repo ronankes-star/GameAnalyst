@@ -44,10 +44,20 @@ def latest_day(store: Store) -> str | None:
 
 
 def table_rows(
-    store: Store, day: str, query: str | None = None, chart: str | None = None, own: bool = False, top: int = 20
+    store: Store,
+    day: str,
+    query: str | None = None,
+    chart: str | None = None,
+    own: bool = False,
+    top: int = 20,
+    ids: set[int] | None = None,
 ) -> list[dict]:
-    """One day's games, most players online first. Filter by a search term, a chart, or your own games."""
+    """One day's games, most players online first. Filter by a search term, a chart, your own games, or a set of
+    universe ids (for example the games in a genre list)."""
     where, args = ["g.day = ?"], [day]
+    if ids is not None:
+        where.append(f"g.universe_id IN ({','.join('?' * len(ids)) or 'NULL'})")
+        args += sorted(ids)
     if own:
         where.append("g.universe_id IN (SELECT universe_id FROM game_sources WHERE source LIKE 'place:%')")
     if query:
@@ -87,3 +97,46 @@ def format_table(rows: list[dict], day: str) -> str:
 
     note = f"Day {day} (UTC). Playing = players online at the moment the run saved the game."
     return "\n".join([note, line(head), *map(line, body)])
+
+
+def list_note(decisions: list) -> str:
+    """One sentence on the state of a genre list: how many games wait for a person's check."""
+    to_check = sum(1 for _, decision in decisions if decision.verdict == "check")
+    by_hand = sum(1 for _, decision in decisions if decision.by_hand)
+    if to_check:
+        return f"{to_check} games still wait for a check, so the list is not final. Your decisions so far: {by_hand}."
+    return f"Every game is decided. Your decisions: {by_hand}."
+
+
+def format_review(decisions: list, rules, day: str, path, show_all: bool = False) -> str:
+    """The text view of a genre list: the counts, then the games to check with the reasons."""
+    groups: dict[str, list] = {"in": [], "check": [], "out": []}
+    for game, decision in decisions:
+        groups[decision.verdict].append((game, decision))
+    genre_out = [(g, d) for g, d in groups["out"] if (g["genre_l2"] or "") in rules.genre_l2]
+    lines = [
+        f"{rules.title}, day {day} (UTC), from {len(decisions)} games saved that day.",
+        f"  in: {len(groups['in'])}   check: {len(groups['check'])}   "
+        f"left out but filed as {', '.join(sorted(rules.genre_l2))}: {len(genre_out)}",
+        f"The words and your decisions live in {path}. {list_note(decisions)}",
+    ]
+
+    def block(title: str, rows: list) -> list[str]:
+        if not rows:
+            return []
+        out = ["", f"{title} ({len(rows)}), most players first:"]
+        for n, (game, decision) in enumerate(rows, 1):
+            out.append(
+                f"  {n:>3}. {display_name(game['name'], 40):<40} {human(game['playing']):>6}  "
+                f"{game['universe_id']:>12}  {'; '.join(decision.reasons)}"
+            )
+        return out
+
+    lines += block("To check", groups["check"])
+    if show_all:
+        lines += block("In the list", groups["in"])
+        lines += block(f"Left out, but filed as {', '.join(sorted(rules.genre_l2))}", genre_out)
+    else:
+        lines.append("\nAdd --all to see the games in the list and the TD games left out.")
+    lines.append(f"To decide a game, add its universe id under [include] or [exclude] in {path}.")
+    return "\n".join(lines)
