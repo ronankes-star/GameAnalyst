@@ -118,7 +118,8 @@ def run_collect(args: argparse.Namespace, store: Store, data: Path) -> int:
         raw.close()
     lines = [
         f"{stamp()} {result.day}: saved {result.collected} games, found {result.discovered} new, "
-        f"{result.skipped} already saved today, {len(result.errors)} errors, {rbx.http.requests_made} requests",
+        f"{result.skipped} already saved today, {result.quiet} quiet (badges and passes not due), "
+        f"{len(result.errors)} errors, {rbx.http.requests_made} requests",
         *(f"  error: {error}" for error in result.errors[:10]),
     ]
     for line in lines:

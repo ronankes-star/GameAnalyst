@@ -1,5 +1,8 @@
-from gameanalyst.collect import backfill_text
-from tests.fakes import A, B, C, DAY, FakeRoblox, run_fake_day
+from gameanalyst.collect import Plan, backfill_text, collect_day
+from gameanalyst.report import table_rows
+from gameanalyst.store import RawArchive, Store
+from gameanalyst.study import game_rows
+from tests.fakes import A, B, C, DAY, PLACE_OF_C, FakeRoblox, fake_roblox, run_fake_day
 
 
 def count(store, table):
@@ -74,3 +77,44 @@ def test_backfill_fills_descriptions_from_the_raw_archive(tmp_path):
     assert backfill_text(store, tmp_path / "raw") == 3
     assert backfill_text(store, tmp_path / "raw") == 0  # safe to run again
     assert store.texts(DAY)[B].startswith("Place cameramen")
+
+
+def collect_on(tmp_path, store, rbx, day, **plan):
+    raw = RawArchive(tmp_path / "raw", day)
+    try:
+        return collect_day(rbx, store, raw, Plan(queries=["anime td"], place_ids=[PLACE_OF_C], **plan), day)
+    finally:
+        raw.close()
+
+
+def test_quiet_games_get_badges_and_passes_once_a_week(tmp_path):
+    rbx, _ = fake_roblox()
+    store = Store(tmp_path / "db.sqlite")
+    # A has 1 player online: quiet. B (2) and C (3) are busy enough at quiet_below=2.
+    assert collect_on(tmp_path, store, rbx, "2026-11-12", quiet_below=2).quiet == 0  # never checked: check all
+    assert collect_on(tmp_path, store, rbx, "2026-11-13", quiet_below=2).quiet == 1  # A was checked yesterday
+    assert collect_on(tmp_path, store, rbx, "2026-11-19", quiet_below=2).quiet == 0  # a week later: check A again
+    checks = store.db.execute("SELECT day FROM detail_checks WHERE universe_id = ? ORDER BY day", (A,)).fetchall()
+    assert checks == [("2026-11-12",), ("2026-11-19",)]
+
+
+def test_on_a_day_without_a_check_the_last_check_counts(tmp_path):
+    rbx, _ = fake_roblox()
+    store = Store(tmp_path / "db.sqlite")
+    collect_on(tmp_path, store, rbx, "2026-11-12")
+    collect_on(tmp_path, store, rbx, "2026-11-13")  # every fake game is quiet: no badges or passes saved today
+    assert store.db.execute("SELECT COUNT(*) FROM pass_daily WHERE day = '2026-11-13'").fetchone()[0] == 0
+    row = game_rows(store, "2026-11-13", [A])[0]
+    assert (row["passes"], row["badges"]) == (1, 3)
+    shown = {r["universe_id"]: (r["passes"], r["badges"]) for r in table_rows(store, "2026-11-13")}
+    assert shown[A] == (1, 3)
+
+
+def test_an_older_file_counts_every_saved_game_as_checked(tmp_path):
+    _, store = run_fake_day(tmp_path)
+    store.db.execute("DELETE FROM detail_checks")
+    store.commit()
+    store.close()
+    store = Store(tmp_path / "db.sqlite")
+    assert store.db.execute("SELECT COUNT(*) FROM detail_checks").fetchone()[0] == 3
+

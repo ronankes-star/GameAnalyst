@@ -25,6 +25,8 @@ class Plan:
     limit: int | None = None  # collect at most this many games (for quick tests)
     badge_pages: int = 3
     pass_pages: int = 2
+    quiet_below: int = 20  # players online. A quiet game gets its badges and passes once a week, not every day.
+    detail_every: int = 7  # days between two badge and pass checks of a quiet game
 
 
 @dataclass
@@ -33,6 +35,7 @@ class RunResult:
     discovered: int = 0
     collected: int = 0
     skipped: int = 0
+    quiet: int = 0  # quiet games whose badges and passes were not due today
     errors: list[str] = field(default_factory=list)
 
 
@@ -108,6 +111,17 @@ def pass_row(day: str, universe_id: int, game_pass: dict) -> dict:
     }
 
 
+def needs_details(store: Store, plan: Plan, universe_id: int, day: str, playing: int | None) -> bool:
+    """Badges and passes cost two requests per game. A busy game gets them every day, a quiet one once a week.
+
+    Players, visits, favorites and votes come in cheap batches, so every game keeps those every day.
+    """
+    if (playing or 0) >= plan.quiet_below:
+        return True
+    last = store.last_details(universe_id, day)
+    return last is None or (dt.date.fromisoformat(day) - dt.date.fromisoformat(last)).days >= plan.detail_every
+
+
 def collect_day(
     rbx: Roblox,
     store: Store,
@@ -139,15 +153,19 @@ def collect_day(
         raw.write("games", uid, {"game": game, "votes": votes.get(uid), "icon": icons.get(uid)})
         store.add("game_daily", [game_row(day, uid, game, votes.get(uid, {}), icons.get(uid, {}), stamp())])
         store.save_text(day, uid, game.get("description"))
-        try:
-            badges = rbx.badges(uid, plan.badge_pages)
-            raw.write("badges", uid, badges)
-            store.add("badge_daily", [badge_row(day, uid, badge) for badge in badges])
-            passes = rbx.game_passes(uid, plan.pass_pages)
-            raw.write("passes", uid, passes)
-            store.add("pass_daily", [pass_row(day, uid, game_pass) for game_pass in passes])
-        except HttpError as e:
-            result.errors.append(f"{uid}: HTTP {e.status} on {e.url.split('?')[0]}")
+        if needs_details(store, plan, uid, day, game.get("playing")):
+            try:
+                badges = rbx.badges(uid, plan.badge_pages)
+                raw.write("badges", uid, badges)
+                store.add("badge_daily", [badge_row(day, uid, badge) for badge in badges])
+                passes = rbx.game_passes(uid, plan.pass_pages)
+                raw.write("passes", uid, passes)
+                store.add("pass_daily", [pass_row(day, uid, game_pass) for game_pass in passes])
+                store.mark_details(day, uid)
+            except HttpError as e:
+                result.errors.append(f"{uid}: HTTP {e.status} on {e.url.split('?')[0]}")
+        else:
+            result.quiet += 1
         store.commit()  # one commit per game, so a crash keeps the work done so far
         result.collected += 1
         if progress:

@@ -28,6 +28,7 @@ def add_game(store, uid, playing, *, created="2025-11-12", updated="2026-11-10",
     store.add("badge_daily", [{"day": DAY, "universe_id": uid, "badge_id": uid * 100 + n, "name": "badge",
                                "enabled": 1, "created": DAY, "awarded_past_day": a, "awarded_total": a * 10}
                               for n, a in enumerate(badges)])
+    store.mark_details(DAY, uid)
 
 
 @pytest.fixture

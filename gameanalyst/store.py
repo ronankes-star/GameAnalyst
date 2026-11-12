@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Iterator, TextIO
 
 TABLES = (
-    "tracked_games", "game_sources", "game_daily", "game_text", "badge_daily", "pass_daily", "chart_daily",
-    "search_daily", "runs",
+    "tracked_games", "game_sources", "game_daily", "game_text", "badge_daily", "pass_daily", "detail_checks",
+    "chart_daily", "search_daily", "runs",
 )
 
 SCHEMA = """
@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS pass_daily (
     name TEXT, price INTEGER, for_sale INTEGER,
     PRIMARY KEY (day, pass_id)
 );
+CREATE TABLE IF NOT EXISTS detail_checks (  -- the days a game's badges and passes were saved
+    day TEXT NOT NULL, universe_id INTEGER NOT NULL,
+    PRIMARY KEY (universe_id, day)
+);
 CREATE TABLE IF NOT EXISTS chart_daily (
     day TEXT NOT NULL, sort_id TEXT NOT NULL, rank INTEGER NOT NULL,
     universe_id INTEGER NOT NULL, player_count INTEGER, is_sponsored INTEGER,
@@ -83,6 +87,11 @@ class Store:
             "SELECT NOT EXISTS (SELECT 1 FROM game_sources) AND EXISTS (SELECT 1 FROM tracked_games)"
         ).fetchone()[0]:  # game_sources came after tracked_games
             self.db.execute("INSERT OR IGNORE INTO game_sources SELECT universe_id, source, first_seen FROM tracked_games")
+            self.db.commit()
+        if self.db.execute(
+            "SELECT NOT EXISTS (SELECT 1 FROM detail_checks) AND EXISTS (SELECT 1 FROM game_daily)"
+        ).fetchone()[0]:  # before detail_checks, every saved game got its badges and passes on the same day
+            self.db.execute("INSERT OR IGNORE INTO detail_checks SELECT day, universe_id FROM game_daily")
             self.db.commit()
 
     def close(self) -> None:
@@ -140,6 +149,17 @@ class Store:
             (day,),
         )
         return dict(rows.fetchall())
+
+    def mark_details(self, day: str, universe_id: int) -> None:
+        """Remember that this game's badges and passes were saved on this day."""
+        self.db.execute("INSERT OR IGNORE INTO detail_checks VALUES (?, ?)", (day, universe_id))
+
+    def last_details(self, universe_id: int, before: str) -> str | None:
+        """The last day before `before` on which this game's badges and passes were saved."""
+        row = self.db.execute(
+            "SELECT MAX(day) FROM detail_checks WHERE universe_id = ? AND day < ?", (universe_id, before)
+        ).fetchone()
+        return row[0]
 
     def log_run(self, started: str, finished: str, day: str, games: int, requests: int, errors: list[str]) -> None:
         self.db.execute(

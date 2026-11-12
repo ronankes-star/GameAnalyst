@@ -69,13 +69,15 @@ def table_rows(
     sql = f"""
         SELECT g.universe_id, g.name, g.playing, g.visits, g.favorites, g.up_votes, g.down_votes,
                g.created, g.updated,
-               (SELECT COUNT(*) FROM pass_daily p WHERE p.day = g.day AND p.universe_id = g.universe_id) AS passes,
-               (SELECT COUNT(*) FROM badge_daily b WHERE b.day = g.day AND b.universe_id = g.universe_id) AS badges
+               (SELECT COUNT(*) FROM pass_daily p WHERE p.universe_id = g.universe_id AND p.day = last.day) AS passes,
+               (SELECT COUNT(*) FROM badge_daily b WHERE b.universe_id = g.universe_id AND b.day = last.day) AS badges
         FROM game_daily g
+        LEFT JOIN (SELECT universe_id, MAX(day) AS day FROM detail_checks WHERE day <= ? GROUP BY universe_id) last
+               ON last.universe_id = g.universe_id  -- badges and passes as of the last check (weekly for quiet games)
         WHERE {' AND '.join(where)}
         ORDER BY g.playing DESC
         LIMIT ?"""
-    cursor = store.db.execute(sql, [*args, top])
+    cursor = store.db.execute(sql, [day, *args, top])
     names = [column[0] for column in cursor.description]
     return [dict(zip(names, row)) for row in cursor.fetchall()]
 

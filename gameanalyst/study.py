@@ -102,18 +102,21 @@ def game_rows(
     names = [column[0] for column in cursor.description]
     games = [dict(zip(names, row)) for row in cursor.fetchall()]
 
+    # Badges and passes as of each game's last check on or before the day (quiet games are checked weekly).
+    last = (f"WITH last AS (SELECT universe_id, MAX(day) AS day FROM detail_checks WHERE day <= ? "
+            f"AND universe_id IN ({slots}) GROUP BY universe_id) ")
     prices: dict[int, list[int]] = {uid: [] for uid in ids}
     for uid, price in store.db.execute(
-        f"SELECT universe_id, price FROM pass_daily WHERE day = ? AND for_sale = 1 AND price IS NOT NULL "
-        f"AND universe_id IN ({slots})",
+        last + "SELECT p.universe_id, p.price FROM pass_daily p JOIN last ON p.universe_id = last.universe_id "
+        "AND p.day = last.day WHERE p.for_sale = 1 AND p.price IS NOT NULL",
         [day, *ids],
     ):
         prices[uid].append(price)
     badges = {
         uid: (count, top_day)
         for uid, count, top_day in store.db.execute(
-            f"SELECT universe_id, SUM(enabled), MAX(awarded_past_day) FROM badge_daily WHERE day = ? "
-            f"AND universe_id IN ({slots}) GROUP BY universe_id",
+            last + "SELECT b.universe_id, SUM(b.enabled), MAX(b.awarded_past_day) FROM badge_daily b JOIN last "
+            "ON b.universe_id = last.universe_id AND b.day = last.day GROUP BY b.universe_id",
             [day, *ids],
         )
     }
